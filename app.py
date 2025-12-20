@@ -86,19 +86,62 @@ def login():
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    Expenses = Expense.query.filter_by(user_id= current_user.id).all()
+    expenses = Expense.query.filter_by(user_id= current_user.id).all()
+    category_totals = {}
+
+    for exp in expenses:
+        cat_name = exp.category.name if exp.category else 'Uncategorized'
+        category_totals['cat_name'] = category_totals.get(cat_name,0) + exp.amount
+
+    suggestions = []
+
+    if category_totals:
+        max_cat = max(category_totals, key= category_totals.get)
+        max_amt = category_totals[max_cat]
+        
+        if max_amt > 300000:
+            suggestions.append(f"You spent UGX {max_amt} on {max_cat}. Consider reducing it")
+        else:
+            suggestions.append("Your spending is within healthy limits")
+
+    return render_template(
+        username = current_user.username,
+        expense = expenses,
+        categories = list(category_totals.keys()),
+        totals = list(category_totals.values()),
+        suggestions = suggestions
+
+    )
+
+@app.route('/add', methods =['GET','POST'])
+@login_required
+def add_expense():
+    categories = Category.query.all()
+
+    if request.method == 'POST':
+        title = request.form['title']
+        amount = float(request.form['amount'])
+        date = request.form['date']
+        category_id = request.form['category_id']
+
+        new_expense = Expense(
+            title = title,
+            amount = amount,
+            date = date,
+            user_id = current_user.id,
+            category_id = category_id
+        )
+
+        db.session.add(new_expense)
+        db.session.commit()
+        flash('Expense added!', 'success')
+        return redirect(url_for('dashboard'))
     
+    return render_template('add_expenses.html', categories = categories)
 
 
 
 
-
-# # Dashboard
-# @app.route("/dashboard")
-# def dashboard():
-#     if "username" in session:
-#         return render_template("dashboard.html", username=session['username'])
-#     return redirect(url_for('home'))
 
 
 
